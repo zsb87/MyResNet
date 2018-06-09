@@ -19,8 +19,6 @@ warnings.filterwarnings("ignore")
 
 
 def tt_split_pseudo_rand(XY, train_ratio, seed):
-    # eg: train_ratio = 0.7
-
     numL = list(range(10))
     random.seed(seed)
     random.shuffle(numL)
@@ -47,11 +45,12 @@ class HW5_dataset(Dataset):
 
         self.mdict = sio.loadmat(self.root)
 
-        self.X = self.mdict['X'].astype('float32').reshape((60000, 784))/255
+        self.X = self.mdict['X'].astype('float32').reshape((60000, 784))
         self.y = self.mdict['y'].reshape((60000, 1))
 
         self.XY = np.hstack((self.X,self.y))
         self.XY_train, self.XY_val = tt_split_pseudo_rand(self.XY, 0.9, seed=1)
+
         self.X = self.XY_train[:,:-1]
         self.Y = self.XY_train[:,-1]
         self.X_val = self.XY_val[:,:-1]
@@ -59,18 +58,14 @@ class HW5_dataset(Dataset):
 
         self.X = torch.from_numpy(self.X)
         self.y = torch.from_numpy(self.Y.squeeze()).long()
-
         self.X_val = torch.from_numpy(self.X_val)
         self.y_val = torch.from_numpy(self.y_val.squeeze()).long()
 
-        # train_data = utils_data.TensorDataset(X, y)
-        # val_data = utils_data.TensorDataset(X_val, y_val)
-
     def __len__(self):
         if self.train:
-        	return len(self.y)
+            return len(self.y)
         else:
-        	return len(self.y_val)
+            return len(self.y_val)
 
     def __getitem__(self, index):
         if self.train:
@@ -78,12 +73,11 @@ class HW5_dataset(Dataset):
         else:
             img, target = self.X_val[index], self.y_val[index]
 
-        img = Image.fromarray(img.numpy().reshape((28,28)), mode='L')
-
+        img = Image.fromarray(img.numpy().reshape((28,28))) # after removing mode = 'L', bug fixed
         if self.transform is not None:
             img = self.transform(img)
 
-        return img, target
+        return img/255.0, target
 
 
 
@@ -94,33 +88,10 @@ if __name__== '__main__':
                             # utils.RandomRotation(),
                             utils.RandomTranslation(),
                             # utils.RandomVerticalFlip(),
-                            transforms.ToTensor()
-                            # transforms.Normalize((0.1307,), (0.3081,))
-                            ]
-                            )
+                            transforms.ToTensor()])
 
-    val_transforms = transforms.Compose([
-                            transforms.ToTensor()
-                            # transforms.Normalize((0.1307,), (0.3081,))
-                            ])
+    val_transforms = transforms.Compose([transforms.ToTensor()])
 
+    train_data = HW5_dataset('data', train = 1, transform = train_transforms)
 
-    train_data = HW5_dataset('data', train = 0, transform = train_transforms)
-
-    print(train_data[100])
-
-    # for i in range(len(train_data)):
-    # 	sample = train_data[i]
-    # 	print(i)
-
-
-
-    # print(train_data)
-    # print(train_data.__dict__)
-
-
-    # train_loader = utils_data.DataLoader(train_data)
-
-    # print(train_loader)
-
-
+    print((train_data[100][0].numpy()))
