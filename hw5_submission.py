@@ -204,6 +204,8 @@ if __name__ == '__main__':
 
 
     net = model.__dict__[args.model]()
+    print(net)
+    
     
     # Change optimizer for finetuning    
     optimizer = torch.optim.Adam(net.parameters())
