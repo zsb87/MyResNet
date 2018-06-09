@@ -205,7 +205,7 @@ if __name__ == '__main__':
 
     net = model.__dict__[args.model]()
     print(net)
-    
+
     
     # Change optimizer for finetuning    
     optimizer = torch.optim.Adam(net.parameters())
@@ -224,10 +224,6 @@ if __name__ == '__main__':
                 val_acc)
 
         print(stats)
-        log_value('train_loss', train_loss, epoch)
-        log_value('val_loss', val_loss, epoch)
-        log_value('train_acc', train_acc, epoch)
-        log_value('val_acc', val_acc, epoch)
 
         #early stopping and save best model
         if val_acc > 0.92:
