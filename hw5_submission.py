@@ -35,9 +35,6 @@ import model
 from HW5_dataset import HW5_dataset
 import argparse
 
-from hack import test_model_hack
-
-
 
 
 def create_folder(f, deleteExisting=False):
