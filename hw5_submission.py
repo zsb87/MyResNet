@@ -218,8 +218,8 @@ if __name__ == '__main__':
 
         stats ="""Epoch: {}\t train loss: {:.3f}, train acc: {:.3f}\t
                 val loss: {:.3f}, val acc: {:.3f}\t
-                time: {:.1f}s""".format(epoch, train_loss, train_acc, val_loss,
-                val_acc, end-start)
+                """.format(epoch, train_loss, train_acc, val_loss,
+                val_acc)
 
         print(stats)
         log_value('train_loss', train_loss, epoch)
