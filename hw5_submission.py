@@ -17,30 +17,29 @@ file and a .pdf file explaining your network and results.
 
 """
 
+import os
 import sys
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data as utils_data
+import torchvision.transforms as transforms
 import scipy.io as sio
 from datetime import datetime
 import scipy.misc
+import utils
 import random
+import model
+from HW5_dataset import HW5_dataset
+import argparse
+
 from hack import test_model_hack
-from net import Net
-import os
+
+
+
 
 def create_folder(f, deleteExisting=False):
-    '''
-    Create the folder
-
-    Parameters:
-            f: folder path. Could be nested path (so nested folders will be created)
-
-            deleteExising: if True then the existing folder will be deleted.
-
-    '''
     if os.path.exists(f):
         if deleteExisting:
             shutil.rmtree(f)
@@ -48,34 +47,7 @@ def create_folder(f, deleteExisting=False):
         os.makedirs(f)
 
 
-def lprint(logfile, *argv): # for python version 3
-
-    """ 
-    Function description: 
-    ----------
-        Save output to log files and print on the screen.
-
-    Function description: 
-    ----------
-        var = 1
-        lprint('log.txt', var)
-        lprint('log.txt','Python',' code')
-
-    Parameters
-    ----------
-        logfile:                 the log file path and file name.
-        argv:                    what should 
-        
-    Return
-    ------
-        none
-
-    Author
-    ------
-    Shibo(shibozhang2015@u.northwestern.edu)
-    """
-
-    # argument check
+def lprint(logfile, *argv):
     if len(argv) == 0:
         print('Err: wrong usage of func lprint().')
         sys.exit()
@@ -109,173 +81,156 @@ def tt_split_pseudo_rand(XY, train_ratio, seed):
     return XY[train_ind], XY[test_ind]
 
 
-# set seed
-seed = 1226
-np.random.seed(seed)
-torch.manual_seed(seed)
-#%% Parameters
+def train(model, train_loader, criterion, optimizer):
+    # set to training mode
+    model.train()
+    running_loss = 0
+    running_correct = 0
 
-epochs = 10
-lr = 0.001
-momentum = 0.9
-batch_size = 128
+    for i, data in enumerate(train_loader):
+        X, y = data
+        if cuda:
+            X, y = X.cuda(), y.cuda()
+        X, y = Variable(X), Variable(y)
 
-logfile = 'log_val.txt'
-lprint(logfile, 'seed: ', seed)
-lprint(logfile, 'epochs: ', epochs)
-lprint(logfile, 'lr: ', lr)
-lprint(logfile, 'momentum: ', momentum)
-lprint(logfile, 'batch_size: ', batch_size)
+        # zero gradient    
+        optimizer.zero_grad()
 
+        # forward pass and compute loss
+        output = model(X)
+        loss = criterion(output, y)
 
-#%% Load Data
-#
-#   It may be beneficial to consider how to transform your data to obtain 
-#   better performance.
+        loss.backward()
+        optimizer.step()
 
-mdict = sio.loadmat('data')
+        running_loss += loss.item()
+        pred = output.data.max(1, keepdim=True)[1]
+        running_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
 
-X = mdict['X'].astype('float32').reshape((60000, 784))/255
-y = mdict['y'].reshape((60000, 1))
+    train_acc = running_correct.numpy()/len(train_loader.dataset)
 
-XY = np.hstack((X,y))
-XY_train, XY_val = tt_split_pseudo_rand(XY, 0.9, seed)
-X_train = XY_train[:,:-1]
-Y_train = XY_train[:,-1]
-X_val = XY_val[:,:-1]
-y_val = XY_val[:,-1]
-
-X = torch.from_numpy(X_train)
-y = torch.from_numpy(Y_train.squeeze()).long()
-
-X_val = torch.from_numpy(X_val)
-y_val = torch.from_numpy(y_val.squeeze()).long()
+    return running_loss/len(train_loader), train_acc
 
 
-train_data = utils_data.TensorDataset(X, y)
+def validate(model, val_loader, criterion):
+    model.eval()
+    running_loss = 0
+    running_correct = 0
+    for i, (X,y) in enumerate(val_loader):
+        if cuda:
+            X, y = X.cuda(), y.cuda()
+        # X, y = Variable(X, volatile=True), Variable(y)
+        X, y = Variable(X), Variable(y)
+        output = model(X)
+        loss = criterion(output, y)
 
-# #%% Define Neural Network Architecture
-# #
-# #   Modify your neural network here!
-
-# class Net(nn.Module):
-#     def __init__(self):
-#         super(Net, self).__init__()
-#         self.fc1 = nn.Linear(784, 1000)
-#         self.fc2 = nn.Linear(1000, 10)
-
-#     def forward(self, x):
-#         x = F.relu(self.fc1(x))
-#         x = self.fc2(x)
-#         return x
+        running_loss += loss.item()
+        pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
+        running_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
     
+    val_acc = running_correct.numpy()/len(val_loader.dataset)
+
+    return running_loss/len(val_loader), val_acc
+
+
+
+
+if __name__ == '__main__':
+
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, default='resnet18', help="model")
+    parser.add_argument("--batch_size", type=int, default=64, help="batch size")
+    parser.add_argument("--nepochs", type=int, default=200, help="max epochs")
+    parser.add_argument("--nocuda", action='store_true', help="no cuda used")
+    parser.add_argument("--nworkers", type=int, default=4, help="number of workers")
+    args = parser.parse_args()
+
+    cuda = not args.nocuda and torch.cuda.is_available() # use cuda
+
+    seed = 1
+
+    # set seed
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if cuda:
+        torch.cuda.manual_seed(seed)
+
+    # mdict = sio.loadmat('data')
+
+    # X = mdict['X'].astype('float32').reshape((60000, 784))/255
+    # y = mdict['y'].reshape((60000, 1))
+
+    # XY = np.hstack((X,y))
+    # XY_train, XY_val = tt_split_pseudo_rand(XY, 0.9, seed)
+    # X_train = XY_train[:,:-1]
+    # Y_train = XY_train[:,-1]
+    # X_val = XY_val[:,:-1]
+    # y_val = XY_val[:,-1]
+
+    # X = torch.from_numpy(X_train)
+    # y = torch.from_numpy(Y_train.squeeze()).long()
+
+    # X_val = torch.from_numpy(X_val)
+    # y_val = torch.from_numpy(y_val.squeeze()).long()
+
+
+
+    train_transforms = transforms.Compose([
+                            transforms.RandomHorizontalFlip(),
+                            # utils.RandomRotation(),
+                            utils.RandomTranslation(),
+                            # utils.RandomVerticalFlip(),
+                            transforms.ToTensor()
+                            # transforms.Normalize((0.1307,), (0.3081,))
+                            ]
+                            )
+
+    val_transforms = transforms.Compose([
+                            transforms.ToTensor()
+                            # transforms.Normalize((0.1307,), (0.3081,))
+                            ])
+
+
+    train_data = HW5_dataset('data', train = 1, transform = train_transforms)
+    val_data = HW5_dataset('data', train = 0, transform = val_transforms)
+
+    # train_data = utils_data.TensorDataset(X, y)
+    # val_data = utils_data.TensorDataset(X_val, y_val)
     
-#%% Define Training Function
-#
-#   Modify your optimization algorithm and learning rate schedule here!
+    train_loader = utils_data.DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
+                                        num_workers=args.nworkers)
+    val_loader = utils_data.DataLoader(val_data, batch_size=args.batch_size, shuffle=False, 
+                                        num_workers=args.nworkers)     
 
-def train_model(model, nb_epochs=10, batch_size=100, lr=0.001, momentum=0.9):
-    """
-    Trains the model using SGD.
+
+
+    net = model.__dict__[args.model]()
     
-    Inputs:
-        model: Neural network model
-        nb_epochs: number of epochs (int)
-        batch_size: batch size (int)
-        lr: learning rate/steplength (float)
-    
-    """
-    
-    # initialize train loader, optimizer, and loss
-    train_loader = utils_data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
-    loss = torch.nn.CrossEntropyLoss()
-        
-    for e in range(nb_epochs):
-
-        # Training loop!
-        for i, data in enumerate(train_loader):
-            
-            # get inputs
-            inputs, labels = data
-            
-            # set to training mode
-            model.train()
-            
-             # zero gradient
-            optimizer.zero_grad()
-            
-            # forward pass and compute loss
-            ops = model(inputs)
-            loss_fn = loss(ops, labels)
-            
-            # compute gradient and take step in optimizer
-            loss_fn.backward() 
-            optimizer.step()
-        
-        model.eval() # set to evaluation mode
-        
-        # evaluate training loss and training accuracy
-        ops = model(X)
-        _, predicted = torch.max(ops.data, 1)
-        train_loss = loss(ops, y).item()
-        train_acc = torch.mean((predicted == y).float()).item()*100
-                    
-        lprint(logfile, 'Epoch: ', e+1, 'Train Loss: ', train_loss, '  Training Accuracy: ', train_acc)
-        
-"""
-                #%% Train Neural Network
-"""
-
-# # Create neural network
-# model = Net()
-
-# # Train model
-# train_model(model, nb_epochs=epochs, batch_size=batch_size, lr=lr, momentum=momentum)
-
-# # Save model weights
-# create_folder('m1')
-# torch.save(model.state_dict(), './m1/trained_model.pt')
-
-#%% Define Testing Function
-
-def test_model(X, y):
-    """
-    Tests the model using stored network weights. 
-    Please ensure that this code will allow me to test your model on testing data.
-    An example code is given below.
-    
-    Inputs:
-        X: feature data (FloatTensor)
-        y: labels (LongTensor)
-    
-    """
-    
-    # constructs model
-    model = Net()
-    loss = torch.nn.CrossEntropyLoss()
-    
-    # loads weights
-    # model.load_state_dict(torch.load('./m1/trained_model.pt'))
-    mfile = 'trained_model_resnet18_19_epoch0_acc0.5356709788179701.pt'
-    mdir = '../pallas'
-
-    model.load_state_dict(torch.load(os.path.join(mdir,mfile)))
-    # compute loss and accuracy
-    ops = model(X)
-    _, predicted = torch.max(ops.data, 1)
-    test_loss = loss(ops, y).item()
-    test_acc = torch.mean((predicted == y).float()).item()*100
-    
-    lprint(logfile, 'Test Loss: ', test_loss)
-    lprint(logfile, 'Test Accuracy: ', test_acc)
+    # Change optimizer for finetuning    
+    optimizer = torch.optim.Adam(net.parameters())
+    criterion = torch.nn.CrossEntropyLoss()
+    if cuda:
+        net, criterion = net.cuda(), criterion.cuda()
 
 
-test_model(X_val, y_val)
+    for epoch in range(args.nepochs):
+        train_loss, train_acc = train(net, train_loader, criterion, optimizer)
+        val_loss, val_acc = validate(net, val_loader, criterion)
 
+        stats ="""Epoch: {}\t train loss: {:.3f}, train acc: {:.3f}\t
+                val loss: {:.3f}, val acc: {:.3f}\t
+                time: {:.1f}s""".format(epoch, train_loss, train_acc, val_loss,
+                val_acc, end-start)
 
+        print(stats)
+        log_value('train_loss', train_loss, epoch)
+        log_value('val_loss', val_loss, epoch)
+        log_value('train_acc', train_acc, epoch)
+        log_value('val_acc', val_acc, epoch)
 
-"""
-HACK
-"""
-test_model_hack()
+        #early stopping and save best model
+        if val_acc > 0.92:
+            torch.save({'arch': args.model,'state_dict': net.state_dict()}, 
+                            'trained_model_{}_{}_epoch{}_acc{}.pt'.format(args.model, epoch, val_loss))
+
