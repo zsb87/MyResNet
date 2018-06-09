@@ -83,12 +83,11 @@ class HW5_dataset(Dataset):
 
 if __name__== '__main__':
 
-    train_transforms = transforms.Compose([
-                            transforms.RandomHorizontalFlip(),
-                            # utils.RandomRotation(),
-                            utils.RandomTranslation(),
-                            # utils.RandomVerticalFlip(),
-                            transforms.ToTensor()])
+    train_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
+				                            # utils.RandomRotation(),
+				                            utils.RandomTranslation(),
+				                            # utils.RandomVerticalFlip(),
+				                            transforms.ToTensor()])
 
     val_transforms = transforms.Compose([transforms.ToTensor()])
 

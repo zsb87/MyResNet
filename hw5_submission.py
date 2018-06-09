@@ -181,7 +181,7 @@ if __name__ == '__main__':
                                             utils.RandomTranslation(),
                                             # utils.RandomVerticalFlip(),
                                             transforms.ToTensor()])
-    
+
     val_transforms = transforms.Compose([transforms.ToTensor()])
 
     train_data = HW5_dataset('data', train = 1, transform = train_transforms)
@@ -212,15 +212,11 @@ if __name__ == '__main__':
         train_loss, train_acc = train(net, train_loader, criterion, optimizer)
         val_loss, val_acc = validate(net, val_loader, criterion)
 
-        stats ="""Epoch: {}\t train loss: {:.3f}, train acc: {:.3f}\t
-                val loss: {:.3f}, val acc: {:.3f}\t
-                """.format(epoch, train_loss, train_acc, val_loss,
-                val_acc)
-
-        print(stats)
+        print('Epoch: {}  Train Loss: {:.3f}  Training Accuracy: {:.3f}  Val loss: {:.3f}, Val acc: {:.3f}'.format(epoch, 
+                train_loss, train_acc, val_loss, val_acc))
 
         #early stopping and save best model
-        if val_acc > 0.72:
-            torch.save({'arch': args.model,'state_dict': net.state_dict()}, 
-                            'trained_model_{}_{}_epoch{}_acc{}.pt'.format(args.model, epoch, val_loss))
+        if val_acc > 0.8:
+            torch.save({'arch': args.model,'state_dict': net.state_dict()},
+                        'trained_model_{}_epoch{}_acc{}.pt'.format(args.model, epoch, val_acc))
 
