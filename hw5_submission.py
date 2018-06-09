@@ -180,12 +180,10 @@ if __name__ == '__main__':
                                             # utils.RandomRotation(),
                                             utils.RandomTranslation(),
                                             # utils.RandomVerticalFlip(),
-                                            transforms.ToTensor()
-                                            # transforms.Normalize((0.1307,), (0.3081,))
-                                            ]
-                                            )
-    val_transforms = transforms.Compose([transforms.ToTensor()
-                            ])
+                                            transforms.ToTensor()])
+    
+    val_transforms = transforms.Compose([transforms.ToTensor()])
+
     train_data = HW5_dataset('data', train = 1, transform = train_transforms)
     val_data = HW5_dataset('data', train = 0, transform = val_transforms)
 
