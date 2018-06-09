@@ -139,7 +139,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default='resnet18', help="model")
     parser.add_argument("--batch_size", type=int, default=64, help="batch size")
-    parser.add_argument("--nepochs", type=int, default=200, help="max epochs")
+    parser.add_argument("--nepochs", type=int, default=400, help="max epochs")
     parser.add_argument("--nocuda", action='store_true', help="no cuda used")
     parser.add_argument("--nworkers", type=int, default=4, help="number of workers")
     args = parser.parse_args()
@@ -154,40 +154,40 @@ if __name__ == '__main__':
     if cuda:
         torch.cuda.manual_seed(seed)
 
-    mdict = sio.loadmat('data')
+    # mdict = sio.loadmat('data')
 
-    X = mdict['X'].astype('float32').reshape((60000, 784))/255
-    y = mdict['y'].reshape((60000, 1))
+    # X = mdict['X'].astype('float32').reshape((60000, 784))/255
+    # y = mdict['y'].reshape((60000, 1))
 
-    XY = np.hstack((X,y))
-    XY_train, XY_val = tt_split_pseudo_rand(XY, 0.9, seed)
-    X_train = XY_train[:,:-1]
-    Y_train = XY_train[:,-1]
-    X_val = XY_val[:,:-1]
-    y_val = XY_val[:,-1]
+    # XY = np.hstack((X,y))
+    # XY_train, XY_val = tt_split_pseudo_rand(XY, 0.9, seed)
+    # X_train = XY_train[:,:-1]
+    # Y_train = XY_train[:,-1]
+    # X_val = XY_val[:,:-1]
+    # y_val = XY_val[:,-1]
 
-    X = torch.from_numpy(X_train)
-    y = torch.from_numpy(Y_train.squeeze()).long()
+    # X = torch.from_numpy(X_train)
+    # y = torch.from_numpy(Y_train.squeeze()).long()
 
-    X_val = torch.from_numpy(X_val)
-    y_val = torch.from_numpy(y_val.squeeze()).long()
-    train_data = utils_data.TensorDataset(X, y)
-    val_data = utils_data.TensorDataset(X_val, y_val)
+    # X_val = torch.from_numpy(X_val)
+    # y_val = torch.from_numpy(y_val.squeeze()).long()
+    # train_data = utils_data.TensorDataset(X, y)
+    # val_data = utils_data.TensorDataset(X_val, y_val)
 
 
 
-    # train_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
-    #                                         # utils.RandomRotation(),
-    #                                         utils.RandomTranslation(),
-    #                                         # utils.RandomVerticalFlip(),
-    #                                         transforms.ToTensor()
-    #                                         # transforms.Normalize((0.1307,), (0.3081,))
-    #                                         ]
-    #                                         )
-    # val_transforms = transforms.Compose([transforms.ToTensor()
-    #                         ])
-    # train_data = HW5_dataset('data', train = 1, transform = train_transforms)
-    # val_data = HW5_dataset('data', train = 0, transform = val_transforms)
+    train_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
+                                            # utils.RandomRotation(),
+                                            utils.RandomTranslation(),
+                                            # utils.RandomVerticalFlip(),
+                                            transforms.ToTensor()
+                                            # transforms.Normalize((0.1307,), (0.3081,))
+                                            ]
+                                            )
+    val_transforms = transforms.Compose([transforms.ToTensor()
+                            ])
+    train_data = HW5_dataset('data', train = 1, transform = train_transforms)
+    val_data = HW5_dataset('data', train = 0, transform = val_transforms)
 
 
 
@@ -222,7 +222,7 @@ if __name__ == '__main__':
         print(stats)
 
         #early stopping and save best model
-        if val_acc > 0.92:
+        if val_acc > 0.72:
             torch.save({'arch': args.model,'state_dict': net.state_dict()}, 
                             'trained_model_{}_{}_epoch{}_acc{}.pt'.format(args.model, epoch, val_loss))
 
