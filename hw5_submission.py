@@ -26,6 +26,7 @@ import torch.nn.functional as F
 import torch.utils.data as utils_data
 import torchvision.transforms as transforms
 import scipy.io as sio
+from torch.autograd import Variable
 from datetime import datetime
 import scipy.misc
 import utils
